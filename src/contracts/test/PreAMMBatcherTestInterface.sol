@@ -21,4 +21,8 @@ contract PreAMMBatcherTestInterface is PreAMMBatcher {
     ) public pure {
         super.orderChecks(sellOrderToken0, sellOrderToken1);
     }
+
+    function markSettledOrdersTest(Order[] memory orders) public {
+        super.markSettledOrders(orders);
+    }
 }

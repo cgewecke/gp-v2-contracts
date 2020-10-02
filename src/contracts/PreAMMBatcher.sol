@@ -222,7 +222,7 @@ contract PreAMMBatcher {
         }
     }
 
-    function markSettledOrders(Order[] memory orders) public {
+    function markSettledOrders(Order[] memory orders) internal {
         for (uint256 i = 0; i < orders.length; i++) {
             require(
                 nonces[orders[i].owner] < orders[i].nonce,
