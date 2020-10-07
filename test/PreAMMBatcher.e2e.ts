@@ -43,7 +43,7 @@ const fundUniswap = async (
   await token0.mint(walletDeployer.address, testCase.fundingAMMToken0);
   await token1.mint(walletDeployer.address, testCase.fundingAMMToken1);
   await token0.transfer(uniswapPair.address, testCase.fundingAMMToken0);
-  await token1.transfer(uniswapPair.address, testCase.fundingAMMToken0);
+  await token1.transfer(uniswapPair.address, testCase.fundingAMMToken1);
   await uniswapPair.mint(walletDeployer.address, { gasLimit: 500000 });
 };
 
