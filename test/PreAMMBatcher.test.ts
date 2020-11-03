@@ -17,8 +17,8 @@ import { baseTestInput } from "./resources/testExamples";
 describe("PreAMMBatcher: Unit Tests", () => {
   const [
     walletDeployer,
-    traderWallet1,
-    traderWallet2,
+    InteractionrWallet1,
+    InteractionrWallet2,
   ] = waffle.provider.getWallets();
 
   let batcher: Contract;
@@ -32,12 +32,12 @@ describe("PreAMMBatcher: Unit Tests", () => {
   const initialUniswapFundingOfToken0 = ethers.utils.parseEther("10");
   const initialUniswapFundingOfToken1 = ethers.utils.parseEther("10");
 
-  const mockRelevantTokenDataForBatchTrade = async (
+  const mockRelevantTokenDataForBatchInteraction = async (
     sellOrder1: Order,
     sellOrder2: Order,
   ): Promise<void> => {
     // todo: mock actual right information
-    // mock un-relevant data to make batchTrade call pass
+    // mock un-relevant data to make batchInteraction call pass
     await token0.mock.transferFrom.returns(true);
     await token1.mock.transferFrom.returns(true);
     await token0.mock.transfer.returns(true);
@@ -143,8 +143,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
         const testCaseInput = baseTestInput(
           token0,
           token1,
-          [traderWallet1],
-          [traderWallet2],
+          [InteractionrWallet1],
+          [InteractionrWallet2],
         );
         const now = (await waffle.provider.getBlock("latest")).timestamp;
         testCaseInput.sellOrdersToken0[0].validFrom = BigNumber.from(now - 60);
@@ -165,8 +165,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
         const testCaseInput = baseTestInput(
           token0,
           token1,
-          [traderWallet1],
-          [traderWallet2],
+          [InteractionrWallet1],
+          [InteractionrWallet2],
         );
         const now = (await waffle.provider.getBlock("latest")).timestamp;
         testCaseInput.sellOrdersToken0[0].validUntil = BigNumber.from(now - 60);
@@ -184,8 +184,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
         const testCaseInput = baseTestInput(
           token0,
           token1,
-          [traderWallet1],
-          [traderWallet2],
+          [InteractionrWallet1],
+          [InteractionrWallet2],
         );
         const now = (await waffle.provider.getBlock("latest")).timestamp;
         testCaseInput.sellOrdersToken1[0].validUntil = BigNumber.from(now - 60);
@@ -203,8 +203,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
         const testCaseInput = baseTestInput(
           token0,
           token1,
-          [traderWallet1],
-          [traderWallet2],
+          [InteractionrWallet1],
+          [InteractionrWallet2],
         );
         const now = (await waffle.provider.getBlock("latest")).timestamp;
         testCaseInput.sellOrdersToken0[0].validFrom = BigNumber.from(now + 60);
@@ -222,8 +222,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
         const testCaseInput = baseTestInput(
           token0,
           token1,
-          [traderWallet1],
-          [traderWallet2],
+          [InteractionrWallet1],
+          [InteractionrWallet2],
         );
         const now = (await waffle.provider.getBlock("latest")).timestamp;
         testCaseInput.sellOrdersToken1[0].validFrom = BigNumber.from(now + 60);
@@ -242,8 +242,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
 
       await expect(
@@ -259,8 +259,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
       testCaseInput.sellOrdersToken1[0].sellToken = token0;
 
@@ -274,22 +274,22 @@ describe("PreAMMBatcher: Unit Tests", () => {
     });
   });
 
-  describe("receiveTradeAmounts()", () => {
+  describe("receiveInteractionAmounts()", () => {
     it("reverts if transferFrom fails for token0", async () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
 
-      await mockRelevantTokenDataForBatchTrade(
+      await mockRelevantTokenDataForBatchInteraction(
         testCaseInput.sellOrdersToken0[0],
         testCaseInput.sellOrdersToken1[0],
       );
       await token0.mock.transferFrom.returns(false);
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCaseInput.sellOrdersToken0[0].encode(),
           testCaseInput.sellOrdersToken1[0].encode(),
           { gasLimit: 6000000 },
@@ -301,11 +301,11 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
 
-      await mockRelevantTokenDataForBatchTrade(
+      await mockRelevantTokenDataForBatchInteraction(
         testCaseInput.sellOrdersToken0[0],
         testCaseInput.sellOrdersToken1[0],
       );
@@ -313,7 +313,7 @@ describe("PreAMMBatcher: Unit Tests", () => {
       await token0.mock.transferFrom.reverts();
       await token0.mock.transferFrom
         .withArgs(
-          traderWallet1.address,
+          InteractionrWallet1.address,
           batcher.address,
           testCaseInput.sellOrdersToken0[0].sellAmount,
         )
@@ -321,7 +321,7 @@ describe("PreAMMBatcher: Unit Tests", () => {
       await token1.mock.transferFrom.returns(true);
 
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCaseInput.sellOrdersToken0[0].encode(),
           testCaseInput.sellOrdersToken1[0].encode(),
           { gasLimit: 6000000 },
@@ -333,11 +333,11 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
 
-      await mockRelevantTokenDataForBatchTrade(
+      await mockRelevantTokenDataForBatchInteraction(
         testCaseInput.sellOrdersToken0[0],
         testCaseInput.sellOrdersToken1[0],
       );
@@ -345,7 +345,7 @@ describe("PreAMMBatcher: Unit Tests", () => {
       await token0.mock.transferFrom.returns(true);
       await token1.mock.transferFrom.returns(false);
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCaseInput.sellOrdersToken0[0].encode(),
           testCaseInput.sellOrdersToken1[0].encode(),
           { gasLimit: 6000000 },
@@ -357,10 +357,10 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const testCaseInput = baseTestInput(
         token0,
         token1,
-        [traderWallet1],
-        [traderWallet2],
+        [InteractionrWallet1],
+        [InteractionrWallet2],
       );
-      await mockRelevantTokenDataForBatchTrade(
+      await mockRelevantTokenDataForBatchInteraction(
         testCaseInput.sellOrdersToken0[0],
         testCaseInput.sellOrdersToken1[0],
       );
@@ -369,14 +369,14 @@ describe("PreAMMBatcher: Unit Tests", () => {
       await token1.mock.transferFrom.reverts();
       await token1.mock.transferFrom
         .withArgs(
-          traderWallet2.address,
+          InteractionrWallet2.address,
           batcher.address,
           testCaseInput.sellOrdersToken1[0].sellAmount,
         )
         .returns(true);
 
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCaseInput.sellOrdersToken0[0].encode(),
           testCaseInput.sellOrdersToken1[0].encode(),
           { gasLimit: 6000000 },
@@ -391,9 +391,9 @@ describe("PreAMMBatcher: Unit Tests", () => {
 
     it("returns expected values for generic sorted order set", async () => {
       const sortedOrders = [
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 1),
-        indefiniteOrder(1, 2, token0, token1, traderWallet1, 2),
-        indefiniteOrder(1, 3, token0, token1, traderWallet1, 3),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 1),
+        indefiniteOrder(1, 2, token0, token1, InteractionrWallet1, 2),
+        indefiniteOrder(1, 3, token0, token1, InteractionrWallet1, 3),
       ];
 
       expect(
@@ -427,8 +427,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
 
     it("returns expected values for same two orders", async () => {
       const sortedOrders = [
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 1),
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 2),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 1),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 2),
       ];
       expect(
         await batchTester.isSortedByLimitPriceTest(
@@ -446,9 +446,9 @@ describe("PreAMMBatcher: Unit Tests", () => {
 
     it("returns expected values for generic unsorted set of orders", async () => {
       const unsortedOrders = [
-        indefiniteOrder(1, 2, token0, token1, traderWallet1, 1),
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 2),
-        indefiniteOrder(1, 3, token0, token1, traderWallet1, 3),
+        indefiniteOrder(1, 2, token0, token1, InteractionrWallet1, 1),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 2),
+        indefiniteOrder(1, 3, token0, token1, InteractionrWallet1, 3),
       ];
       expect(
         await batchTester.isSortedByLimitPriceTest(
@@ -484,7 +484,7 @@ describe("PreAMMBatcher: Unit Tests", () => {
     it("returns expected values for singleton order set", async () => {
       // Single Orderset is vacuously sorted
       const singleOrder = [
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 1),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 1),
       ];
       expect(
         await batchTester.isSortedByLimitPriceTest(
@@ -504,8 +504,8 @@ describe("PreAMMBatcher: Unit Tests", () => {
       const maxUint = ethers.constants.MaxUint256;
 
       const overflowingPair = [
-        indefiniteOrder(2, maxUint, token0, token1, traderWallet1, 1),
-        indefiniteOrder(1, maxUint, token0, token1, traderWallet1, 1),
+        indefiniteOrder(2, maxUint, token0, token1, InteractionrWallet1, 1),
+        indefiniteOrder(1, maxUint, token0, token1, InteractionrWallet1, 1),
       ];
       await expect(
         batchTester.isSortedByLimitPriceTest(
@@ -539,9 +539,9 @@ describe("PreAMMBatcher: Unit Tests", () => {
   describe("removeLastElement()", () => {
     it("returns list of orders with top removed for generic list", async () => {
       const orders = [
-        indefiniteOrder(1, 1, token0, token1, traderWallet1, 1),
-        indefiniteOrder(1, 2, token0, token1, traderWallet1, 2),
-        indefiniteOrder(1, 3, token0, token1, traderWallet1, 3),
+        indefiniteOrder(1, 1, token0, token1, InteractionrWallet1, 1),
+        indefiniteOrder(1, 2, token0, token1, InteractionrWallet1, 2),
+        indefiniteOrder(1, 3, token0, token1, InteractionrWallet1, 3),
       ].map((x) => x.getSmartContractOrder());
 
       const expectedResult = orders.slice(0, orders.length - 1);

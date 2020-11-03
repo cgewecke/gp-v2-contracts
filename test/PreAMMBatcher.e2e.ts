@@ -50,12 +50,12 @@ const fundUniswap = async (
 describe("PreAMMBatcher: End to End Tests", () => {
   const [
     walletDeployer,
-    walletTrader1,
-    walletTrader2,
-    walletTrader3,
-    walletTrader4,
-    walletTrader5,
-    walletTrader6,
+    walletInteractionr1,
+    walletInteractionr2,
+    walletInteractionr3,
+    walletInteractionr4,
+    walletInteractionr5,
+    walletInteractionr6,
   ] = waffle.provider.getWallets();
 
   let batcher: Contract;
@@ -74,7 +74,7 @@ describe("PreAMMBatcher: End to End Tests", () => {
 
     if (testCase.solution.sellOrdersToken0.length === 0) {
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCase.getSellOrdersToken0Encoded(),
           testCase.getSellOrdersToken1Encoded(),
           { gasLimit: 6000000 },
@@ -82,7 +82,7 @@ describe("PreAMMBatcher: End to End Tests", () => {
       ).to.be.revertedWith("no solution found");
     } else {
       await expect(
-        batcher.batchTrade(
+        batcher.batchInteraction(
           testCase.getSellOrdersToken0Encoded(),
           testCase.getSellOrdersToken1Encoded(),
           { gasLimit: 6000000 },
@@ -155,8 +155,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         baseTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4],
+          [walletInteractionr1, walletInteractionr2],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
       expect(testCase.solution.sellOrdersToken0.length).to.be.equal(1);
@@ -183,8 +183,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         fourOrderTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4],
+          [walletInteractionr1, walletInteractionr2],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
       await runScenarioOnchain(testCase);
@@ -195,8 +195,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         oneOrderSellingToken0IsOmittedTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4],
+          [walletInteractionr1, walletInteractionr2],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
       expect(testCase.solution.sellOrdersToken0.length).to.be.equal(1);
@@ -209,8 +209,13 @@ describe("PreAMMBatcher: End to End Tests", () => {
         oneOrderSellingToken1IsOmittedTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2, walletTrader5, walletTrader6],
-          [walletTrader3, walletTrader4],
+          [
+            walletInteractionr1,
+            walletInteractionr2,
+            walletInteractionr5,
+            walletInteractionr6,
+          ],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
 
@@ -224,8 +229,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         noSolutionTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2, walletTrader5],
-          [walletTrader3, walletTrader4, walletTrader6],
+          [walletInteractionr1, walletInteractionr2, walletInteractionr5],
+          [walletInteractionr3, walletInteractionr4, walletInteractionr6],
         ),
       );
 
@@ -239,8 +244,13 @@ describe("PreAMMBatcher: End to End Tests", () => {
         switchTokenTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4, walletTrader5, walletTrader6],
+          [walletInteractionr1, walletInteractionr2],
+          [
+            walletInteractionr3,
+            walletInteractionr4,
+            walletInteractionr5,
+            walletInteractionr6,
+          ],
         ),
       );
 
@@ -256,8 +266,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         baseTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4],
+          [walletInteractionr1, walletInteractionr2],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
 
@@ -283,7 +293,7 @@ describe("PreAMMBatcher: End to End Tests", () => {
       );
 
       await expect(
-        batcher.batchTrade(encodedOrdersToken0, encodedOrdersToken1, {
+        batcher.batchInteraction(encodedOrdersToken0, encodedOrdersToken1, {
           gasLimit: 6000000,
         }),
       ).to.be.revertedWith("invalid_signature");
@@ -294,8 +304,8 @@ describe("PreAMMBatcher: End to End Tests", () => {
         baseTestInput(
           token0,
           token1,
-          [walletTrader1, walletTrader2],
-          [walletTrader3, walletTrader4],
+          [walletInteractionr1, walletInteractionr2],
+          [walletInteractionr3, walletInteractionr4],
         ),
       );
 
@@ -314,7 +324,7 @@ describe("PreAMMBatcher: End to End Tests", () => {
       );
 
       await expect(
-        batcher.batchTrade(encodedOrdersToken0, encodedOrdersToken1, {
+        batcher.batchInteraction(encodedOrdersToken0, encodedOrdersToken1, {
           gasLimit: 6000000,
         }),
       ).to.be.revertedWith("malformed encoded orders");

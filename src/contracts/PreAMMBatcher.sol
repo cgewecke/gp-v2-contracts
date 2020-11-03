@@ -51,10 +51,10 @@ contract PreAMMBatcher {
         uniswapFactory = _uniswapFactory;
     }
 
-    function batchTrade(bytes calldata order0bytes, bytes calldata order1bytes)
-        public
-        returns (Fraction memory clearingPrice)
-    {
+    function batchInteraction(
+        bytes calldata order0bytes,
+        bytes calldata order1bytes
+    ) public returns (Fraction memory clearingPrice) {
         Order[] memory sellOrdersToken0 = decodeOrders(order0bytes);
         Order[] memory sellOrdersToken1 = decodeOrders(order1bytes);
         for (uint256 i = 0; i < sellOrdersToken0.length; i++) {
@@ -64,8 +64,8 @@ contract PreAMMBatcher {
             sellOrdersToken1[i] = reduceOrder(sellOrdersToken1[i]);
         }
         orderChecks(sellOrdersToken0, sellOrdersToken1);
-        receiveTradeAmounts(sellOrdersToken0);
-        receiveTradeAmounts(sellOrdersToken1);
+        receiveInteractionAmounts(sellOrdersToken0);
+        receiveInteractionAmounts(sellOrdersToken1);
         IUniswapV2Pair uniswapPool = IUniswapV2Pair(
             uniswapFactory.getPair(
                 sellOrdersToken0[0].sellToken,
@@ -91,8 +91,8 @@ contract PreAMMBatcher {
         );
         markSettledOrders(sellOrdersToken0);
         markSettledOrders(sellOrdersToken1);
-        payOutTradeProceedings(sellOrdersToken0, clearingPrice);
-        payOutTradeProceedings(sellOrdersToken1, inverse(clearingPrice));
+        payOutInteractionProceedings(sellOrdersToken0, clearingPrice);
+        payOutInteractionProceedings(sellOrdersToken1, inverse(clearingPrice));
         emit BatchSettlement(
             sellOrdersToken0[0].sellToken,
             sellOrdersToken1[0].sellToken,
@@ -409,7 +409,7 @@ contract PreAMMBatcher {
         }
     }
 
-    function receiveTradeAmounts(Order[] memory orders) internal {
+    function receiveInteractionAmounts(Order[] memory orders) internal {
         for (uint256 i = 0; i < orders.length; i++) {
             require(
                 IERC20(orders[i].sellToken).transferFrom(
@@ -422,7 +422,7 @@ contract PreAMMBatcher {
         }
     }
 
-    function payOutTradeProceedings(
+    function payOutInteractionProceedings(
         Order[] memory orders,
         Fraction memory price
     ) internal {
