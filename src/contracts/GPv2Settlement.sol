@@ -19,7 +19,7 @@ contract GPv2Settlement is OrderStructure {
     /// making signatures for different domains incompatible.
     string private constant DOMAIN_SEPARATOR = "GPv2";
 
-    /// @dev The feeFactor is used to caluclate the charged fee: 1/FEE_FACTOR
+    /// @dev The feeFactor is used to calculate the charged fee: 1/FEE_FACTOR
     // min_fee_factor is a minimum and each factor used by the solver needs to be bigger
     uint256 public constant MIN_FEE_FACTOR = 1000;
 
@@ -31,7 +31,7 @@ contract GPv2Settlement is OrderStructure {
     uint256 private constant CALL_DATA_SIZE_STRIDE = 10;
 
     /// @dev Solidity function signature length
-    uint256 SIGNATURE_LENGTH = 4;
+    uint256 private constant SIGNATURE_LENGTH = 4;
 
     /// @dev Possible nonce solutions
     // mapping (address =>mapping(uint => bytes)) public bitmap;
@@ -107,14 +107,25 @@ contract GPv2Settlement is OrderStructure {
             );
 
             // An external contract interaction might need to have several
-            // interactions - e.g. for uniswap exvchange, we would have one transfer and
+            // interactions - e.g. for uniswap exchange, we would have one transfer and
             // one swap interaction
-
 
             (bytes4 signature, bytes memory restOfCallData) = abi.decode(
                 Interactions[i].callData,
                 (bytes4, bytes)
             ); // <-- since signature is not padded with 0's, this decoding is actually wrong.
+
+            // There are two types of interactions.
+            // 1. Generic smart contract calls. The contract at the given address is
+            //    called with the payload specified in the instruction.
+            // 2. Calls to so-called smart contract orders. A smart contract order
+            //    implements a function `settle`, taking the current clearing price
+            //    and arbitrary extra information. We treat this call as a separate
+            //    case; in this way, if the smart contract order is called on this
+            //    function, it can assume that the clearing prices are exacttly
+            //    those that are applied to the current batch. This obviates the fact
+            //    that we can't verify the uniform clearing price constraint for this
+            //    kind of orders.
             if (
                 signature == bytes4(keccak256("settle(uint256,uint256,bytes)"))
             ) {
