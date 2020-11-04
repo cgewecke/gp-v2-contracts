@@ -8,6 +8,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./GPv2Withdraw.sol";
 import "./OrderStructure.sol";
+import "./SmartContractOrder.sol";
 
 /// @title Gnosis Protocol v2 Settlement Contract
 /// @author Gnosis Developers
@@ -28,6 +29,9 @@ contract GPv2Settlement is OrderStructure {
 
     /// @dev The stride of a uint16 returning the callData size
     uint256 private constant CALL_DATA_SIZE_STRIDE = 10;
+
+    /// @dev Solidity function signature length
+    uint256 SIGNATURE_LENGTH = 4;
 
     /// @dev Possible nonce solutions
     // mapping (address =>mapping(uint => bytes)) public bitmap;
@@ -74,7 +78,7 @@ contract GPv2Settlement is OrderStructure {
         uint256[] memory clearingPrices,
         address[] memory tokens,
         bytes calldata encodedOrders,
-        uint feeFactor
+        uint256 feeFactor
     ) external {
         Order[] memory orders = decodeOrders(encodedOrders);
         withdrawContract.receiveTradeAmounts(orders);
@@ -84,23 +88,63 @@ contract GPv2Settlement is OrderStructure {
             encodedInteractions,
             numberOfInteractions
         );
-        executeInteractions(Interactions);
+        executeInteractions(Interactions, tokens, clearingPrices);
 
         settleOrders(orders, clearingPrices, tokens, feeFactor);
     }
 
-    function executeInteractions(Interaction[] memory Interactions) internal {
+    function executeInteractions(
+        Interaction[] memory Interactions,
+        address[] memory tokens,
+        uint256[] memory clearingPrices
+    ) internal {
         for (uint256 i = 0; i < Interactions.length; i++) {
-            // to prevent possible attacks against users funds, 
+            // to prevent possible attacks against users funds,
             // interactions with the withdrawContract are not allowed
             require(
                 Interactions[i].interactionTarget != address(withdrawContract),
                 "Interactions with withdraw contract are not allowed"
             );
-            // An external contract interaction might need to have several 
-            // interactions - e.g. for uniswap exvchange, we would have one transfer and 
+
+            // An external contract interaction might need to have several
+            // interactions - e.g. for uniswap exvchange, we would have one transfer and
             // one swap interaction
-            (Interactions[i].interactionTarget).call(Interactions[i].callData);
+
+
+            (bytes4 signature, bytes memory restOfCallData) = abi.decode(
+                Interactions[i].callData,
+                (bytes4, bytes)
+            ); // <-- since signature is not padded with 0's, this decoding is actually wrong.
+            if (
+                signature == bytes4(keccak256("settle(uint256,uint256,bytes)"))
+            ) {
+                // If the function signature is according to our predefined template
+                // then the settlement contract should hand over the clearingPrices
+                SmartContractOrder order = SmartContractOrder(
+                    Interactions[i].interactionTarget
+                );
+                address sellToken = address(order.sellToken());
+                address buyToken = address(order.buyToken());
+                (
+                    uint256 clearingPriceNum,
+                    uint256 clearingPriceDen
+                ) = getClearingPrice(
+                    sellToken,
+                    buyToken,
+                    clearingPrices,
+                    tokens
+                );
+                order.settle(
+                    clearingPriceNum,
+                    clearingPriceDen,
+                    restOfCallData
+                );
+            } else {
+                // otherwise, the settlement contract is allowed to hand over arbitraty data
+                (Interactions[i].interactionTarget).call(
+                    Interactions[i].callData
+                );
+            }
         }
     }
 
@@ -172,9 +216,7 @@ contract GPv2Settlement is OrderStructure {
         pure
         returns (Interaction memory interaction)
     {
-        (
-            address interactionTarget
-        ) = abi.decode(
+        address interactionTarget = abi.decode(
             interactionBytes[:INTERACTION_STRIDE],
             (address)
         );
@@ -232,9 +274,9 @@ contract GPv2Settlement is OrderStructure {
         Order[] memory orders,
         uint256[] memory clearingPrices,
         address[] memory tokens,
-        uint feeFactor
+        uint256 feeFactor
     ) internal {
-        require(feeFactor> MIN_FEE_FACTOR ,"fee not set correctly");
+        require(feeFactor > MIN_FEE_FACTOR, "fee not set correctly");
         for (uint256 i = 0; i < orders.length; i++) {
             uint256 soldAmount = (orders[i].executedAmount * (feeFactor - 1)) /
                 feeFactor;
@@ -250,7 +292,9 @@ contract GPv2Settlement is OrderStructure {
             // verify limit prices:
             require(
                 clearingPriceNum.mul(orders[i].sellAmount).mul(feeFactor) <=
-                    clearingPriceDen.mul(orders[i].buyAmount).mul(feeFactor - 1),
+                    clearingPriceDen.mul(orders[i].buyAmount).mul(
+                        feeFactor - 1
+                    ),
                 "clearing prices not met"
             );
             // verify that killOrFill orders are fully matched

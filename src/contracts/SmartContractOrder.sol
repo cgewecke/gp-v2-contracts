@@ -17,7 +17,7 @@ contract SmartContractOrder {
     uint256 public boughtAmount = 0;
     address public settlementContract;
 
-    modifier onlySettlementContract(){
+    modifier onlySettlementContract() {
         require(
             msg.sender == settlementContract,
             "Only settlement contract can call this function."
@@ -39,14 +39,20 @@ contract SmartContractOrder {
         settlementContract = _settlementContract;
     }
 
-    function settle(uint256 clearingPriceNum, uint256 clearingPriceDen) public onlySettlementContract(){
+    function settle(
+        uint256 clearingPriceNum,
+        uint256 clearingPriceDen,
+        bytes calldata _additional_information
+    ) public onlySettlementContract() {
         uint256 buyAmount = buyToken.balanceOf(address(this)) - boughtAmount;
         boughtAmount = buyAmount;
         require(
             clearingPriceNum.mul(priceDen) <= clearingPriceDen.mul(priceNum),
             "limit price not respected"
         );
-        uint256 sellAmount = buyAmount.mul(clearingPriceNum).div(clearingPriceDen);
+        uint256 sellAmount = buyAmount.mul(clearingPriceNum).div(
+            clearingPriceDen
+        );
         require(sellToken.transfer(msg.sender, sellAmount), "transfer failed");
     }
 }
