@@ -18,8 +18,9 @@ contract GPv2Settlement is OrderStructure {
     /// making signatures for different domains incompatible.
     string private constant DOMAIN_SEPARATOR = "GPv2";
 
-    /// @dev The fee_factor is used to caluclate the charged fee: 1/FEE_FACTOR
-    uint256 public constant FEE_FACTOR = 1000;
+    /// @dev The feeFactor is used to caluclate the charged fee: 1/FEE_FACTOR
+    // min_fee_factor is a minimum and each factor used by the solver needs to be bigger
+    uint256 public constant MIN_FEE_FACTOR = 1000;
 
     /// @dev The stride of an encoded order.
     uint256 private constant ORDER_STRIDE = 130;
@@ -27,6 +28,14 @@ contract GPv2Settlement is OrderStructure {
 
     /// @dev The stride of a uint16 returning the callData size
     uint256 private constant CALL_DATA_SIZE_STRIDE = 10;
+
+    /// @dev Possible nonce solutions
+    // mapping (address =>mapping(uint => bytes)) public bitmap;
+    // function flipBitForNonce( uint nonce, address user)public {
+    //     bitmap[user][(nonce%1024)/256]|=1<<(nonce%256);
+    // }
+    // // or
+    // uint public globalnonce=0;
 
     /// @dev Replay protection that is mixed with the order data for signing.
     /// This is done in order to avoid chain and domain replay protection, so
@@ -39,9 +48,6 @@ contract GPv2Settlement is OrderStructure {
     GPv2Withdraw public immutable withdrawContract;
 
     struct Interaction {
-        uint256 sellAmount;
-        address sellToken;
-        address transferTarget;
         bytes callData;
         address interactionTarget;
     }
@@ -67,7 +73,8 @@ contract GPv2Settlement is OrderStructure {
         uint256 numberOfInteractions,
         uint256[] memory clearingPrices,
         address[] memory tokens,
-        bytes calldata encodedOrders
+        bytes calldata encodedOrders,
+        uint feeFactor
     ) external {
         Order[] memory orders = decodeOrders(encodedOrders);
         withdrawContract.receiveTradeAmounts(orders);
@@ -79,24 +86,20 @@ contract GPv2Settlement is OrderStructure {
         );
         executeInteractions(Interactions);
 
-        settleOrders(orders, clearingPrices, tokens);
+        settleOrders(orders, clearingPrices, tokens, feeFactor);
     }
 
     function executeInteractions(Interaction[] memory Interactions) internal {
         for (uint256 i = 0; i < Interactions.length; i++) {
-            require(
-                IERC20(Interactions[i].sellToken).transfer(
-                    address(Interactions[i].transferTarget),
-                    Interactions[i].sellAmount
-                ),
-                "transfer to transferTarget failed"
-            );
             // to prevent possible attacks against users funds, 
             // interactions with the withdrawContract are not allowed
             require(
                 Interactions[i].interactionTarget != address(withdrawContract),
                 "Interactions with withdraw contract are not allowed"
             );
+            // An external contract interaction might need to have several 
+            // interactions - e.g. for uniswap exvchange, we would have one transfer and 
+            // one swap interaction
             (Interactions[i].interactionTarget).call(Interactions[i].callData);
         }
     }
@@ -170,13 +173,10 @@ contract GPv2Settlement is OrderStructure {
         returns (Interaction memory interaction)
     {
         (
-            uint256 sellAmount,
-            address sellToken,
-            address transferTarget,
             address interactionTarget
         ) = abi.decode(
             interactionBytes[:INTERACTION_STRIDE],
-            (uint256, address, address, address)
+            (address)
         );
         bytes memory callData = abi.decode(
             interactionBytes[INTERACTION_STRIDE:],
@@ -184,9 +184,6 @@ contract GPv2Settlement is OrderStructure {
         );
         return
             Interaction({
-                sellAmount: sellAmount,
-                sellToken: sellToken,
-                transferTarget: transferTarget,
                 callData: callData,
                 interactionTarget: interactionTarget
             });
@@ -234,11 +231,13 @@ contract GPv2Settlement is OrderStructure {
     function settleOrders(
         Order[] memory orders,
         uint256[] memory clearingPrices,
-        address[] memory tokens
+        address[] memory tokens,
+        uint feeFactor
     ) internal {
+        require(feeFactor> MIN_FEE_FACTOR ,"fee not set correctly");
         for (uint256 i = 0; i < orders.length; i++) {
-            uint256 soldAmount = (orders[i].executedAmount * (FEE_FACTOR - 1)) /
-                FEE_FACTOR;
+            uint256 soldAmount = (orders[i].executedAmount * (feeFactor - 1)) /
+                feeFactor;
             (
                 uint256 clearingPriceNum,
                 uint256 clearingPriceDen
@@ -250,8 +249,8 @@ contract GPv2Settlement is OrderStructure {
             );
             // verify limit prices:
             require(
-                clearingPriceNum.mul(orders[i].sellAmount) <=
-                    clearingPriceDen.mul(orders[i].buyAmount),
+                clearingPriceNum.mul(orders[i].sellAmount).mul(feeFactor) <=
+                    clearingPriceDen.mul(orders[i].buyAmount).mul(feeFactor - 1),
                 "clearing prices not met"
             );
             // verify that killOrFill orders are fully matched

@@ -16,7 +16,7 @@ contract GPv2Withdraw is Ownable, OrderStructure {
             require(
                 IERC20(orders[i].sellToken).transferFrom(
                     orders[i].owner,
-                    address(owner()),
+                    address(owner()), // <-- settlement contract
                     orders[i].sellAmount
                 ),
                 "order transfer failed"

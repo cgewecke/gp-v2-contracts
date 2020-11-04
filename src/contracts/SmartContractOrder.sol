@@ -15,27 +15,38 @@ contract SmartContractOrder {
     IERC20 public sellToken;
     IERC20 public buyToken;
     uint256 public boughtAmount = 0;
+    address public settlementContract;
+
+    modifier onlySettlementContract(){
+        require(
+            msg.sender == settlementContract,
+            "Only settlement contract can call this function."
+        );
+        _;
+    }
 
     constructor(
         uint256 _priceNum,
         uint256 _priceDen,
         IERC20 _sellToken,
-        IERC20 _buyToken
+        IERC20 _buyToken,
+        address _settlementContract
     ) public {
         priceNum = _priceNum;
         priceDen = _priceDen;
         sellToken = _sellToken;
         buyToken = _buyToken;
+        settlementContract = _settlementContract;
     }
 
-    function settle(uint256 clearingPriceNum, uint256 clearingPriceDen) public {
+    function settle(uint256 clearingPriceNum, uint256 clearingPriceDen) public onlySettlementContract(){
         uint256 buyAmount = buyToken.balanceOf(address(this)) - boughtAmount;
         boughtAmount = buyAmount;
         require(
             clearingPriceNum.mul(priceDen) <= clearingPriceDen.mul(priceNum),
             "limit price not respected"
         );
-        uint256 sellAmount = buyAmount.mul(priceDen).div(priceNum);
+        uint256 sellAmount = buyAmount.mul(clearingPriceNum).div(clearingPriceDen);
         require(sellToken.transfer(msg.sender, sellAmount), "transfer failed");
     }
 }
