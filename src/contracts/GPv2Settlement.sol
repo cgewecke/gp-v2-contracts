@@ -26,20 +26,15 @@ contract GPv2Settlement is OrderStructure {
     /// @dev The stride of an encoded order.
     uint256 private constant ORDER_STRIDE = 130;
     uint256 private constant INTERACTION_STRIDE = 130;
-
+    uint256 private constant BITMAP_CLEAN_STRIDE = 60;
     /// @dev The stride of a uint16 returning the callData size
     uint256 private constant CALL_DATA_SIZE_STRIDE = 10;
 
     /// @dev Solidity function signature length
     uint256 private constant SIGNATURE_LENGTH = 4;
 
-    /// @dev Possible nonce solutions
-    // mapping (address =>mapping(uint => bytes)) public bitmap;
-    // function flipBitForNonce( uint nonce, address user)public {
-    //     bitmap[user][(nonce%1024)/256]|=1<<(nonce%256);
-    // }
-    // // or
-    // uint public globalnonce=0;
+    /// @dev Bitmap to invalid the orders
+    mapping(bytes32 => bool) public cancelationBitmap;
 
     /// @dev Replay protection that is mixed with the order data for signing.
     /// This is done in order to avoid chain and domain replay protection, so
@@ -72,6 +67,26 @@ contract GPv2Settlement is OrderStructure {
         withdrawContract = new GPv2Withdraw();
     }
 
+    function settleWithRefund(
+        bytes calldata encodedInteractions,
+        uint256 numberOfInteractions,
+        uint256[] memory clearingPrices,
+        address[] memory tokens,
+        bytes calldata encodedOrders,
+        uint256 feeFactor,
+        bytes calldata noLongerValidOrdersData
+    ) external {
+        settle(
+            encodedInteractions,
+            numberOfInteractions,
+            clearingPrices,
+            tokens,
+            encodedOrders,
+            feeFactor
+        );
+        processRefunds(noLongerValidOrdersData);
+    }
+
     function settle(
         bytes calldata encodedInteractions,
         uint256 numberOfInteractions,
@@ -79,10 +94,9 @@ contract GPv2Settlement is OrderStructure {
         address[] memory tokens,
         bytes calldata encodedOrders,
         uint256 feeFactor
-    ) external {
+    ) public {
         Order[] memory orders = decodeOrders(encodedOrders);
         withdrawContract.receiveTradeAmounts(orders);
-        //todo: replay protection orders: Either global nonces or bitmaps cancelations
 
         Interaction[] memory Interactions = decodeInteractions(
             encodedInteractions,
@@ -159,9 +173,36 @@ contract GPv2Settlement is OrderStructure {
         }
     }
 
+    function processRefunds(bytes calldata orderBytes) public {
+        require(
+            orderBytes.length % BITMAP_CLEAN_STRIDE == 0,
+            "malformed encoded orders"
+        );
+        while (orderBytes.length > 0) {
+
+                bytes calldata singleBitmapCleanInfo
+             = orderBytes[:BITMAP_CLEAN_STRIDE];
+            orderBytes = orderBytes[BITMAP_CLEAN_STRIDE:];
+            (bytes32 digest, uint256 validTo, address owner) = abi.decode(
+                singleBitmapCleanInfo,
+                (bytes32, uint256, address)
+            );
+            refundFromBitmap(digest, validTo, owner);
+        }
+    }
+
+    function refundFromBitmap(
+        bytes32 digest,
+        uint256 validTo,
+        address owner
+    ) public {
+        require(validTo < now, "Order validity is not in the past");
+        bytes32 orderKey = keccak256(abi.encode(digest, validTo, owner));
+        cancelationBitmap[orderKey] = false;
+    }
+
     function decodeSingleOrder(bytes calldata orderBytes)
         internal
-        pure
         returns (GPv2Settlement.Order memory orders)
     {
         (
@@ -206,6 +247,11 @@ contract GPv2Settlement is OrderStructure {
             )
         );
         address recoveredAddress = ecrecover(digest, v, r, s);
+        bytes32 bitmapKey = keccak256(
+            abi.encode(digest, validTo, recoveredAddress)
+        );
+        require(!cancelationBitmap[bitmapKey], "order was already canceled");
+        cancelationBitmap[bitmapKey] = true;
         require(recoveredAddress != address(0), "invalid_signature");
         return
             Order({
@@ -264,7 +310,6 @@ contract GPv2Settlement is OrderStructure {
 
     function decodeOrders(bytes calldata orderBytes)
         internal
-        pure
         returns (Order[] memory orders)
     {
         require(
