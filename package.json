@@ -54,6 +54,7 @@
     "/build",
     "/deployments",
     "/lib/src",
+    "/lib/build",
     "/network.json",
     "/src"
   ]
